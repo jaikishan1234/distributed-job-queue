@@ -1,0 +1,72 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum JobStatus {
+  pending
+  active
+  completed
+  failed
+  dlq
+  cancelled
+}
+
+model Job {
+  id              String    @id @default(uuid()) @db.Uuid
+  type            String
+  queue           String
+  payload         Json
+  status          JobStatus @default(pending)
+  priority        Int       @default(5)
+  attempts        Int       @default(0)
+  maxAttempts     Int       @default(3)
+  runAt           DateTime  @db.Timestamptz
+  lockedAt        DateTime? @db.Timestamptz
+  lockedBy        String?
+  timeoutMs       Int       @default(30000)
+  idempotencyKey  String?
+  tenantId        String?
+  createdAt       DateTime  @default(now()) @db.Timestamptz
+  updatedAt       DateTime  @updatedAt @db.Timestamptz
+  completedAt     DateTime? @db.Timestamptz
+
+  attempts_log    JobAttempt[]
+
+  @@index([queue, status, runAt], name: "idx_queue_status_runat")
+  @@index([status, lockedAt], name: "idx_status_locked")
+  @@unique([tenantId, idempotencyKey], name: "uniq_idem")
+  @@index([queue, priority, runAt], name: "idx_queue_priority_runat")
+  @@map("jobs")
+}
+
+model JobAttempt {
+  id          String    @id @default(uuid()) @db.Uuid
+  jobId       String    @db.Uuid
+  attempt     Int
+  startedAt   DateTime  @db.Timestamptz
+  finishedAt  DateTime? @db.Timestamptz
+  status      String
+  error       String?
+  workerId    String
+
+  job         Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@map("job_attempts")
+}
+
+model Worker {
+  id            String    @id
+  hostname      String
+  pid           Int
+  lastHeartbeat DateTime  @db.Timestamptz
+  startedAt     DateTime  @default(now()) @db.Timestamptz
+  status        String
+  queues        String[]
+
+  @@map("workers")
+}

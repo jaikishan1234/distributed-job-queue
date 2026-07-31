@@ -25,3 +25,9 @@ pnpm-debug.log*
 # OS files
 .DS_Store
 Thumbs.db
+
+# AI Editor files
+.agents/
+.claude/
+.windsurf/
+.cursor/
